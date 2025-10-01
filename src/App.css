@@ -1,0 +1,149 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start; /* use center if you want vertical centering */
+  min-height: 100vh;
+  padding-top: 2rem;
+}
+
+.container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #ffffff;
+  border: 2px solid #0054a4; /* blue border */
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 84, 164, 0.2); /* subtle blue shadow */
+}
+
+h1 {
+  color: #e11b22; /* red */
+}
+
+legend {
+  background-color: #0054a4;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+input,
+textarea,
+select {
+  width: 70%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #f9f9f9;
+  color: #000; /* ← ensure text is black */
+  font-family: Arial, sans-serif;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #0054a4;
+  outline: none;
+  background-color: #ffffff;
+  color: #000; /* ← make sure focused input text is also black */
+}
+
+button {
+  background-color: #e11b22; /* red */
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #c0101a; /* darker red on hover */
+}
+
+.field-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.3rem;
+  display: block;
+}
+/* ✅ Single clean GDPR style */
+.gdpr-line {
+  display: flex;
+  align-items: flex-start;
+  width: 70%; /* align with other input fields */
+  gap: 0.5rem;
+}
+
+.gdpr-line input[type="checkbox"] {
+  margin-top: 0.3rem;
+  transform: scale(1.2);
+}
+
+.gdpr-line label {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  display: inline;
+}
+fieldset {
+  margin-bottom: 2rem;
+}
+.required-star {
+  color: #e11b22;
+  margin-left: 0.2rem;
+}
+/* Generic table styles for all admin-style tables */
+
+.table-container {
+  margin-top: 2rem;
+  overflow-x: auto;
+}
+
+.property-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.property-table th,
+.property-table td {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.property-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.property-table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.property-table tbody tr:hover {
+  background-color: #f0f8ff;
+  transition: 0.2s;
+}
+body {
+  color: #000; /* ensure default text is black */
+  color-scheme: light; /* prevent auto dark mode inversion */
+}
