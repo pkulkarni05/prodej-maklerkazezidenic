@@ -1,4 +1,4 @@
-// File: netlify/functions/bookSlot.sales.ts
+// File: netlify/functions/bookSlot.ts   <-- SALES version (with token)
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
-const handler: Handler = async (event) => {
+export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -21,20 +21,23 @@ const handler: Handler = async (event) => {
       return { statusCode: 400, body: "Missing slotId, applicantId or token" };
     }
 
-    // 1️⃣ Get property_id of the selected slot
+    // 1) Load the slot to get property_id
     const { data: slotData, error: slotError } = await supabase
       .from("viewings")
-      .select("id, slot_start, property_id")
+      .select("id, slot_start, property_id, status")
       .eq("id", slotId)
       .single();
 
     if (slotError || !slotData) {
       return { statusCode: 404, body: "Selected slot not found" };
     }
+    if (slotData.status !== "available") {
+      return { statusCode: 400, body: "Slot not available anymore" };
+    }
 
-    const { property_id, slot_start } = slotData;
+    const { property_id } = slotData;
 
-    // 2️⃣ Validate token for this applicant + property (and ensure not used)
+    // 2) Validate token for this applicant + property (must exist and not be used)
     const { data: tokenRow, error: tokenError } = await supabase
       .from("viewing_tokens")
       .select("id, used")
@@ -50,7 +53,7 @@ const handler: Handler = async (event) => {
       return { statusCode: 400, body: "Invalid or already used token" };
     }
 
-    // 3️⃣ Check if applicant already has a booking for this property; if so, free the old slot
+    // 3) If applicant already has a booking for this property, free the old slot
     const { data: existing } = await supabase
       .from("viewings")
       .select("id")
@@ -66,7 +69,7 @@ const handler: Handler = async (event) => {
         .eq("id", existing.id);
     }
 
-    // 4️⃣ Book the new slot (atomic: only if still available)
+    // 4) Book the new slot (atomic: only if still available)
     const { data: updatedSlots, error: updateError } = await supabase
       .from("viewings")
       .update({
@@ -87,35 +90,35 @@ const handler: Handler = async (event) => {
 
     const newSlot = updatedSlots[0];
 
-    // 5️⃣ Update sales_inquiries.viewing_time
+    // 5) Update sales_inquiries.viewing_time
     await supabase
       .from("sales_inquiries")
       .update({ viewing_time: newSlot.slot_start })
       .eq("applicant_id", applicantId)
       .eq("property_id", property_id);
 
-    // 6️⃣ Mark token as used
+    // 6) Mark token as used
     await supabase
       .from("viewing_tokens")
       .update({ used: true })
       .eq("id", tokenRow.id);
 
-    // 7️⃣ Fetch applicant + property details for confirmation email
-    const { data: applicant } = await supabase
-      .from("applicants")
-      .select("full_name, email")
-      .eq("id", applicantId)
-      .single();
-
-    const { data: property } = await supabase
-      .from("properties")
-      .select("property_configuration, address")
-      .eq("id", property_id)
-      .single();
+    // 7) Confirmation email
+    const [{ data: applicant }, { data: property }] = await Promise.all([
+      supabase
+        .from("applicants")
+        .select("full_name, email")
+        .eq("id", applicantId)
+        .single(),
+      supabase
+        .from("properties")
+        .select("property_configuration, address")
+        .eq("id", property_id)
+        .single(),
+    ]);
 
     if (applicant && property) {
       try {
-        // ✅ Setup Nodemailer with remax-czech SMTP
         const transporter = nodemailer.createTransport({
           host: "mail.re-max.cz",
           port: 587,
@@ -148,16 +151,11 @@ const handler: Handler = async (event) => {
 
         await transporter.sendMail({
           from: `"Jana Bodáková" <jana.bodakova@re-max.cz>`,
-          envelope: {
-            from: process.env.REMAX_USER, // actual SMTP login for SPF/DKIM
-            to: applicant.email,
-          },
+          envelope: { from: process.env.REMAX_USER, to: applicant.email },
           to: applicant.email,
           subject,
           html: htmlBody,
         });
-
-        console.log("📧 Confirmation email sent");
       } catch (mailErr) {
         console.error("Email sending failed:", mailErr);
       }
@@ -169,8 +167,6 @@ const handler: Handler = async (event) => {
     return { statusCode: 500, body: "Internal server error" };
   }
 };
-
-export { handler };
 
 function escapeHtml(s: string) {
   return String(s)

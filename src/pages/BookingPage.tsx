@@ -147,7 +147,7 @@ export default function BookingPage() {
       return;
     }
     try {
-      const res = await fetch("/.netlify/functions/bookSlot.sales", {
+      const res = await fetch("/.netlify/functions/bookSlot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slotId, token }),
