@@ -1,6 +1,6 @@
-// File: src/pages/BookingPage.tsx  (SALES variant using ?applicant=<ID>)
+// src/pages/BookingPage.tsx  (SALES, uses ?applicant=<ID>)
 import "../App.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import dayjs from "dayjs";
@@ -12,12 +12,11 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault("Europe/Prague");
 
 type UUID = string;
-//const TZ = "Europe/Prague";
 
 interface Slot {
   id: UUID;
-  slot_start: string; // ISO from DB (timestamptz)
-  slot_end: string; // ISO from DB (timestamptz)
+  slot_start: string; // timestamptz from DB
+  slot_end: string; // timestamptz from DB
   status: "available" | "booked" | "cancelled";
 }
 
@@ -30,26 +29,6 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [existingBooking, setExistingBooking] = useState<string | null>(null);
-
-  // Group & sort by Prague local date/time; hide past using Prague "now"
-  const groups = useMemo(() => {
-    const nowPrague = dayjs().tz("Europe/Prague");
-    const byDate = slots.reduce<Record<string, Slot[]>>((acc, s) => {
-      const start = dayjs.tz(s.slot_start, "Europe/Prague");
-      if (start.isBefore(nowPrague)) return acc; // hide past slots (Prague)
-      const key = start.format("DD/MM/YYYY");
-      (acc[key] ||= []).push(s);
-      return acc;
-    }, {});
-    Object.values(byDate).forEach((list) =>
-      list.sort(
-        (a, b) =>
-          dayjs.tz(a.slot_start, "Europe/Prague").valueOf() -
-          dayjs.tz(b.slot_start, "Europe/Prague").valueOf()
-      )
-    );
-    return byDate;
-  }, [slots]);
 
   useEffect(() => {
     (async () => {
@@ -75,7 +54,7 @@ export default function BookingPage() {
         return;
       }
 
-      // Optional business_type guard for Sales
+      // Optional: ensure this is a Sales property
       if (
         property.business_type &&
         !["prodej", "sale"].includes(
@@ -87,18 +66,17 @@ export default function BookingPage() {
         return;
       }
 
-      // 2) Existing booking for this applicant/property? (Prague display)
-      const { data: existing } = await supabase
-        .from("viewings")
-        .select("slot_start")
-        .eq("property_id", property.id)
+      // 2) Existing booking banner — read TEXT from sales_inquiries
+      const { data: salesInquiry } = await supabase
+        .from("sales_inquiries")
+        .select("viewing_time")
         .eq("applicant_id", applicantId)
-        .eq("status", "booked")
-        .order("slot_start", { ascending: true })
+        .eq("property_id", property.id)
         .maybeSingle();
 
-      if (existing?.slot_start) {
-        const dt = dayjs(existing.slot_start).tz("Europe/Prague");
+      if (salesInquiry?.viewing_time) {
+        // TEXT saved as Prague wall-time "YYYY-MM-DD HH:mm:ss"
+        const dt = dayjs.tz(salesInquiry.viewing_time, "Europe/Prague");
         setExistingBooking(
           `Máte rezervovaný termín prohlídky: ${dt.format(
             "DD/MM/YYYY"
@@ -108,7 +86,7 @@ export default function BookingPage() {
         );
       }
 
-      // 3) Available slots for this property
+      // 3) Available slots for this property (render in Prague on the fly)
       const { data: vData, error: vErr } = await supabase
         .from("viewings")
         .select("id, slot_start, slot_end, status")
@@ -120,7 +98,7 @@ export default function BookingPage() {
         setMessage("❌ Chyba při načítání časů.");
       } else {
         setSlots(vData || []);
-        if ((!vData || vData.length === 0) && !existing) {
+        if ((!vData || vData.length === 0) && !salesInquiry?.viewing_time) {
           setMessage("Momentálně nejsou k dispozici žádné volné termíny.");
         }
       }
@@ -138,14 +116,16 @@ export default function BookingPage() {
       const res = await fetch("/.netlify/functions/bookSlot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, applicantId }), // no token
+        body: JSON.stringify({ slotId, applicantId }),
       });
 
       if (res.ok) {
+        // Optimistic UI: remove the chosen slot and show success
         setSlots((prev) => prev.filter((s) => s.id !== slotId));
         setMessage(
           "✅ Váš čas byl úspěšně rezervován! Brzy obdržíte potvrzovací e-mail."
         );
+        // We intentionally let the banner refresh on next load; it reads from sales_inquiries.viewing_time
       } else {
         const text = await res.text();
         setMessage("❌ Rezervace se nezdařila: " + text);
@@ -156,6 +136,16 @@ export default function BookingPage() {
   };
 
   if (loading) return <div>Načítám dostupné sloty…</div>;
+
+  // Group by Prague date (same approach as Rentals)
+  const groupedSlots = slots.reduce<Record<string, Slot[]>>((acc, slot) => {
+    const dateKey = dayjs
+      .tz(slot.slot_start, "Europe/Prague")
+      .format("DD/MM/YYYY");
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(slot);
+    return acc;
+  }, {});
 
   return (
     <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
@@ -205,10 +195,10 @@ export default function BookingPage() {
       )}
 
       {/* Slots */}
-      {Object.keys(groups).length === 0 ? (
+      {slots.length === 0 ? (
         <p>Žádné dostupné sloty.</p>
       ) : (
-        Object.entries(groups).map(([date, daySlots]) => (
+        Object.entries(groupedSlots).map(([date, daySlots]) => (
           <div
             key={date}
             style={{
@@ -224,7 +214,6 @@ export default function BookingPage() {
               {daySlots.map((slot) => {
                 const start = dayjs.tz(slot.slot_start, "Europe/Prague");
                 const end = dayjs.tz(slot.slot_end, "Europe/Prague");
-                const disabled = start.isBefore(dayjs().tz("Europe/Prague"));
                 return (
                   <li
                     key={slot.id}
@@ -239,17 +228,15 @@ export default function BookingPage() {
                     </span>
                     <button
                       style={{
-                        backgroundColor: disabled ? "#9bbbe0" : "#0054a4",
+                        backgroundColor: "#0054a4",
                         marginLeft: 10,
                         padding: "6px 10px",
-                        cursor: disabled ? "not-allowed" : "pointer",
+                        cursor: "pointer",
                         color: "white",
                         border: "none",
                         borderRadius: 6,
                       }}
-                      onClick={() => !disabled && handleBooking(slot.id)}
-                      disabled={disabled}
-                      aria-disabled={disabled}
+                      onClick={() => handleBooking(slot.id)}
                     >
                       Rezervovat
                     </button>
