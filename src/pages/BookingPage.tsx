@@ -12,7 +12,7 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault("Europe/Prague");
 
 type UUID = string;
-const TZ = "Europe/Prague";
+//const TZ = "Europe/Prague";
 
 interface Slot {
   id: UUID;
@@ -33,9 +33,9 @@ export default function BookingPage() {
 
   // Group & sort by Prague local date/time; hide past using Prague "now"
   const groups = useMemo(() => {
-    const nowPrague = dayjs().tz(TZ);
+    const nowPrague = dayjs().tz("Europe/Prague");
     const byDate = slots.reduce<Record<string, Slot[]>>((acc, s) => {
-      const start = dayjs.tz(s.slot_start, TZ);
+      const start = dayjs.tz(s.slot_start, "Europe/Prague");
       if (start.isBefore(nowPrague)) return acc; // hide past slots (Prague)
       const key = start.format("DD/MM/YYYY");
       (acc[key] ||= []).push(s);
@@ -44,8 +44,8 @@ export default function BookingPage() {
     Object.values(byDate).forEach((list) =>
       list.sort(
         (a, b) =>
-          dayjs.tz(a.slot_start, TZ).valueOf() -
-          dayjs.tz(b.slot_start, TZ).valueOf()
+          dayjs.tz(a.slot_start, "Europe/Prague").valueOf() -
+          dayjs.tz(b.slot_start, "Europe/Prague").valueOf()
       )
     );
     return byDate;
@@ -98,7 +98,7 @@ export default function BookingPage() {
         .maybeSingle();
 
       if (existing?.slot_start) {
-        const dt = dayjs(existing.slot_start).tz(TZ);
+        const dt = dayjs(existing.slot_start).tz("Europe/Prague");
         setExistingBooking(
           `Máte rezervovaný termín prohlídky: ${dt.format(
             "DD/MM/YYYY"
@@ -222,9 +222,9 @@ export default function BookingPage() {
             <h3 style={{ marginTop: 0, color: "#0054a4" }}>{date}</h3>
             <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
               {daySlots.map((slot) => {
-                const start = dayjs.tz(slot.slot_start, TZ);
-                const end = dayjs.tz(slot.slot_end, TZ);
-                const disabled = start.isBefore(dayjs().tz(TZ));
+                const start = dayjs.tz(slot.slot_start, "Europe/Prague");
+                const end = dayjs.tz(slot.slot_end, "Europe/Prague");
+                const disabled = start.isBefore(dayjs().tz("Europe/Prague"));
                 return (
                   <li
                     key={slot.id}
