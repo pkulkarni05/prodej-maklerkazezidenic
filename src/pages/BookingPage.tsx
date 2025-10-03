@@ -1,4 +1,4 @@
-// src/pages/BookingPage.tsx  (SALES, uses ?applicant=<ID>)
+// File: src/pages/BookingPage.tsx  (SALES variant using ?applicant=<ID>)
 import "../App.css";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -15,8 +15,8 @@ type UUID = string;
 
 interface Slot {
   id: UUID;
-  slot_start: string; // timestamptz from DB
-  slot_end: string; // timestamptz from DB
+  slot_start: string; // DB timestamptz as string
+  slot_end: string;
   status: "available" | "booked" | "cancelled";
 }
 
@@ -31,30 +31,27 @@ export default function BookingPage() {
   const [existingBooking, setExistingBooking] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setMessage(null);
-
+    async function fetchSlots() {
       if (!propertyCode || !applicantId) {
-        setMessage("❌ Chybí identifikace (nemovitost nebo žadatel).");
+        setMessage("❌ Chybí identifikace nemovitosti nebo žadatele.");
         setLoading(false);
         return;
       }
 
-      // 1) Property by code
-      const { data: property, error: propErr } = await supabase
+      // Property
+      const { data: property, error: propError } = await supabase
         .from("properties")
-        .select("id, property_code, business_type")
+        .select("id, business_type")
         .eq("property_code", propertyCode)
         .single();
 
-      if (propErr || !property) {
+      if (propError || !property) {
         setMessage("❌ Nemovitost nebyla nalezena.");
         setLoading(false);
         return;
       }
 
-      // Optional: ensure this is a Sales property
+      // (Optional) ensure Sales property
       if (
         property.business_type &&
         !["prodej", "sale"].includes(
@@ -66,17 +63,16 @@ export default function BookingPage() {
         return;
       }
 
-      // 2) Existing booking banner — read TEXT from sales_inquiries
-      const { data: salesInquiry } = await supabase
+      // Banner: read TEXT from sales_inquiries.viewing_time (mirrors Rentals approach)
+      const { data: inquiry } = await supabase
         .from("sales_inquiries")
         .select("viewing_time")
         .eq("applicant_id", applicantId)
         .eq("property_id", property.id)
         .maybeSingle();
 
-      if (salesInquiry?.viewing_time) {
-        // TEXT saved as Prague wall-time "YYYY-MM-DD HH:mm:ss"
-        const dt = dayjs.tz(salesInquiry.viewing_time, "Europe/Prague");
+      if (inquiry?.viewing_time) {
+        const dt = dayjs(inquiry.viewing_time).tz("Europe/Prague");
         setExistingBooking(
           `Máte rezervovaný termín prohlídky: ${dt.format(
             "DD/MM/YYYY"
@@ -86,25 +82,24 @@ export default function BookingPage() {
         );
       }
 
-      // 3) Available slots for this property (render in Prague on the fly)
-      const { data: vData, error: vErr } = await supabase
+      // Available slots (render in Prague)
+      const { data, error } = await supabase
         .from("viewings")
         .select("id, slot_start, slot_end, status")
         .eq("property_id", property.id)
         .eq("status", "available")
         .order("slot_start", { ascending: true });
 
-      if (vErr) {
+      if (error) {
+        console.error(error);
         setMessage("❌ Chyba při načítání časů.");
       } else {
-        setSlots(vData || []);
-        if ((!vData || vData.length === 0) && !salesInquiry?.viewing_time) {
-          setMessage("Momentálně nejsou k dispozici žádné volné termíny.");
-        }
+        setSlots(data || []);
       }
-
       setLoading(false);
-    })();
+    }
+
+    fetchSlots();
   }, [propertyCode, applicantId]);
 
   const handleBooking = async (slotId: string) => {
@@ -112,6 +107,7 @@ export default function BookingPage() {
       setMessage("❌ Chybí identifikace žadatele.");
       return;
     }
+
     try {
       const res = await fetch("/.netlify/functions/bookSlot", {
         method: "POST",
@@ -120,24 +116,23 @@ export default function BookingPage() {
       });
 
       if (res.ok) {
-        // Optimistic UI: remove the chosen slot and show success
-        setSlots((prev) => prev.filter((s) => s.id !== slotId));
         setMessage(
           "✅ Váš čas byl úspěšně rezervován! Brzy obdržíte potvrzovací e-mail."
         );
-        // We intentionally let the banner refresh on next load; it reads from sales_inquiries.viewing_time
+        setSlots((prev) => prev.filter((s) => s.id !== slotId));
       } else {
         const text = await res.text();
         setMessage("❌ Rezervace se nezdařila: " + text);
       }
-    } catch (_err) {
+    } catch (err) {
+      console.error(err);
       setMessage("❌ Rezervační požadavek selhal.");
     }
   };
 
   if (loading) return <div>Načítám dostupné sloty…</div>;
 
-  // Group by Prague date (same approach as Rentals)
+  // Group by date (Prague)
   const groupedSlots = slots.reduce<Record<string, Slot[]>>((acc, slot) => {
     const dateKey = dayjs
       .tz(slot.slot_start, "Europe/Prague")
@@ -148,53 +143,33 @@ export default function BookingPage() {
   }, {});
 
   return (
-    <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
+    <div style={{ padding: "20px" }}>
       {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          gap: 16,
         }}
       >
-        <h1 style={{ margin: 0 }}>Rezervace prohlídky</h1>
+        <h1>Rezervace prohlídky</h1>
         <img
           src="/logo_pro.png"
           alt="Logo"
-          style={{ height: 80, objectFit: "contain" }}
+          style={{ height: "100px", objectFit: "contain" }}
         />
       </div>
 
-      {/* Messages */}
       {message && (
-        <div
-          style={{
-            marginTop: 12,
-            marginBottom: 16,
-            color: message.startsWith("✅") ? "green" : "#0b64d8",
-          }}
-        >
-          {message}
-        </div>
+        <div style={{ marginBottom: "15px", color: "blue" }}>{message}</div>
       )}
 
       {existingBooking && (
-        <div
-          style={{
-            marginBottom: 20,
-            fontWeight: 600,
-            background: "#f1f6ff",
-            border: "1px solid #cfe3ff",
-            padding: "10px 12px",
-            borderRadius: 8,
-          }}
-        >
+        <div style={{ marginBottom: "20px", fontWeight: "bold" }}>
           {existingBooking}
         </div>
       )}
 
-      {/* Slots */}
       {slots.length === 0 ? (
         <p>Žádné dostupné sloty.</p>
       ) : (
@@ -203,46 +178,31 @@ export default function BookingPage() {
             key={date}
             style={{
               border: "2px solid #0054a4",
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 20,
+              borderRadius: "8px",
+              padding: "10px",
+              marginBottom: "20px",
               backgroundColor: "#f9f9f9",
             }}
           >
             <h3 style={{ marginTop: 0, color: "#0054a4" }}>{date}</h3>
-            <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
-              {daySlots.map((slot) => {
-                const start = dayjs.tz(slot.slot_start, "Europe/Prague");
-                const end = dayjs.tz(slot.slot_end, "Europe/Prague");
-                return (
-                  <li
-                    key={slot.id}
+            <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+              {daySlots.map((slot) => (
+                <li key={slot.id} style={{ marginBottom: "10px" }}>
+                  {dayjs.tz(slot.slot_start, "Europe/Prague").format("HH:mm")} –{" "}
+                  {dayjs.tz(slot.slot_end, "Europe/Prague").format("HH:mm")}
+                  <button
                     style={{
-                      marginBottom: 10,
-                      display: "flex",
-                      alignItems: "center",
+                      backgroundColor: "#0054a4",
+                      marginLeft: "10px",
+                      padding: "4px 8px",
+                      cursor: "pointer",
                     }}
+                    onClick={() => handleBooking(slot.id)}
                   >
-                    <span>
-                      {start.format("HH:mm")} – {end.format("HH:mm")}
-                    </span>
-                    <button
-                      style={{
-                        backgroundColor: "#0054a4",
-                        marginLeft: 10,
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 6,
-                      }}
-                      onClick={() => handleBooking(slot.id)}
-                    >
-                      Rezervovat
-                    </button>
-                  </li>
-                );
-              })}
+                    Rezervovat
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
         ))
