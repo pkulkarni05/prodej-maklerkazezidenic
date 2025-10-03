@@ -75,9 +75,7 @@ export const handler: Handler = async (event) => {
       .update({ status: "booked", applicant_id: applicantId })
       .eq("id", slotId)
       .eq("status", "available")
-      .select("id, slot_start")
-      .limit(1);
-
+      .select("id, slot_start");
     if (updateError) {
       console.error("UPDATE_ERROR", updateError);
       return {
