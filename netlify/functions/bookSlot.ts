@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
     // 2) Validate token for this property and derive applicantId
     const { data: tokenRow, error: tokenError } = await supabase
       .from("viewing_tokens")
-      .select("id, used, applicant_id")
+      .select("id, used, applicant_id, is_active, revoked")
       .eq("property_id", property_id)
       .eq("token", token)
       .single();
@@ -73,8 +73,10 @@ export const handler: Handler = async (event) => {
     if (tokenError || !tokenRow) {
       return { statusCode: 400, body: "Invalid token" };
     }
-    if (tokenRow.used) {
-      return { statusCode: 400, body: "Invalid or already used token" };
+    // Allow rebooking with the same link:
+    // Only block if the token was explicitly revoked or inactive.
+    if (tokenRow.revoked || tokenRow.is_active === false) {
+      return { statusCode: 400, body: "Token not active" };
     }
 
     const applicantId = tokenRow.applicant_id;
