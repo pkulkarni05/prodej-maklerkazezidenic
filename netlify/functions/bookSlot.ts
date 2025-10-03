@@ -78,7 +78,14 @@ export const handler: Handler = async (event) => {
       .select("id, slot_start")
       .limit(1);
 
-    if (updateError) return { statusCode: 500, body: "Database update failed" };
+    if (updateError) {
+      console.error("UPDATE_ERROR", updateError);
+      return {
+        statusCode: 500,
+        body: `Database update failed: ${updateError.message}`,
+      };
+    }
+
     if (!updated || updated.length === 0)
       return { statusCode: 400, body: "Slot not available anymore" };
     const newSlot = updated[0];
