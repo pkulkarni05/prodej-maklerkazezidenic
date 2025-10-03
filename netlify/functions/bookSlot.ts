@@ -1,24 +1,20 @@
-// File: netlify/functions/bookSlot.ts   <-- SALES version (token-based, derives applicantId)
+// netlify/functions/bookSlot.ts  (SALES, no token)
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
-function escapeHtml(s: string) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const TZ = "Europe/Prague";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  // Ensure required env vars exist for functions (frontend VITE_* do not apply here)
   const required = [
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -26,12 +22,11 @@ export const handler: Handler = async (event) => {
     "REMAX_PASSWORD",
   ] as const;
   const missing = required.filter((k) => !process.env[k]);
-  if (missing.length) {
+  if (missing.length)
     return {
       statusCode: 500,
       body: `Missing environment variables: ${missing.join(", ")}`,
     };
-  }
 
   const supabase = createClient(
     process.env.SUPABASE_URL as string,
@@ -39,55 +34,26 @@ export const handler: Handler = async (event) => {
   );
 
   try {
-    const { slotId, token } = JSON.parse(event.body || "{}");
-
-    // We now only require slotId + token (applicantId is derived from token)
-    if (!slotId || !token) {
-      return { statusCode: 400, body: "Missing slotId or token" };
+    const { slotId, applicantId } = JSON.parse(event.body || "{}");
+    if (!slotId || !applicantId) {
+      return { statusCode: 400, body: "Missing slotId or applicantId" };
     }
 
-    // 1) Load the slot → property_id (and ensure it's still available)
+    // 1) Load slot
     const { data: slotData, error: slotError } = await supabase
       .from("viewings")
       .select("id, slot_start, property_id, status")
       .eq("id", slotId)
       .single();
 
-    if (slotError || !slotData) {
+    if (slotError || !slotData)
       return { statusCode: 404, body: "Selected slot not found" };
-    }
-    if (slotData.status !== "available") {
+    if (slotData.status !== "available")
       return { statusCode: 400, body: "Slot not available anymore" };
-    }
 
     const { property_id } = slotData;
 
-    // 2) Validate token for this property and derive applicantId
-    const { data: tokenRow, error: tokenError } = await supabase
-      .from("viewing_tokens")
-      .select("id, used, applicant_id, is_active, revoked")
-      .eq("property_id", property_id)
-      .eq("token", token)
-      .single();
-
-    if (tokenError || !tokenRow) {
-      return { statusCode: 400, body: "Invalid token" };
-    }
-    // Allow rebooking with the same link:
-    // Only block if the token was explicitly revoked or inactive.
-    if (tokenRow.revoked || tokenRow.is_active === false) {
-      return { statusCode: 400, body: "Token not active" };
-    }
-
-    const applicantId = tokenRow.applicant_id;
-    if (!applicantId) {
-      return {
-        statusCode: 400,
-        body: "Unable to resolve applicant from token",
-      };
-    }
-
-    // 3) If this applicant already booked a slot for the same property, free the old one
+    // 2) Free any previous booking for this applicant+property
     const { data: existing } = await supabase
       .from("viewings")
       .select("id")
@@ -103,41 +69,28 @@ export const handler: Handler = async (event) => {
         .eq("id", existing.id);
     }
 
-    // 4) Book the selected slot (atomic: only if still available)
-    const { data: updatedSlots, error: updateError } = await supabase
+    // 3) Book the selected slot (atomic)
+    const { data: updated, error: updateError } = await supabase
       .from("viewings")
-      .update({
-        status: "booked",
-        applicant_id: applicantId,
-      })
+      .update({ status: "booked", applicant_id: applicantId })
       .eq("id", slotId)
       .eq("status", "available")
-      .select("id, slot_start");
+      .select("id, slot_start")
+      .limit(1);
 
-    if (updateError) {
-      console.error("Supabase update error:", updateError);
-      return { statusCode: 500, body: "Database update failed" };
-    }
-    if (!updatedSlots || updatedSlots.length === 0) {
+    if (updateError) return { statusCode: 500, body: "Database update failed" };
+    if (!updated || updated.length === 0)
       return { statusCode: 400, body: "Slot not available anymore" };
-    }
+    const newSlot = updated[0];
 
-    const newSlot = updatedSlots[0];
-
-    // 5) Update sales_inquiries.viewing_time
+    // 4) Update sales_inquiries.viewing_time
     await supabase
       .from("sales_inquiries")
       .update({ viewing_time: newSlot.slot_start })
       .eq("applicant_id", applicantId)
       .eq("property_id", property_id);
 
-    // 6) Mark token as used (single-use links)
-    await supabase
-      .from("viewing_tokens")
-      .update({ used: true })
-      .eq("id", tokenRow.id);
-
-    // 7) Confirmation email
+    // 5) Email confirmation (render in Prague)
     const [{ data: applicant }, { data: property }] = await Promise.all([
       supabase
         .from("applicants")
@@ -151,48 +104,42 @@ export const handler: Handler = async (event) => {
         .single(),
     ]);
 
-    if (applicant && property) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: "mail.re-max.cz",
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.REMAX_USER,
-            pass: process.env.REMAX_PASSWORD,
-          },
-        });
+    if (applicant && property && applicant.email) {
+      const transporter = nodemailer.createTransport({
+        host: "mail.re-max.cz",
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.REMAX_USER,
+          pass: process.env.REMAX_PASSWORD,
+        },
+      });
 
-        const subject = `Potvrzení rezervace: ${property.property_configuration} ${property.address}`;
-        const formattedTime = dayjs(newSlot.slot_start).format(
-          "DD/MM/YYYY HH:mm"
-        );
+      const formattedTime = dayjs(newSlot.slot_start)
+        .tz(TZ)
+        .format("DD/MM/YYYY HH:mm");
+      const subject = `Potvrzení rezervace: ${property.property_configuration} ${property.address}`;
+      const html = `
+        <p>Dobrý den${
+          applicant.full_name ? ` ${escapeHtml(applicant.full_name)}` : ""
+        },</p>
+        <p>Potvrzuji rezervaci Vaší prohlídky:</p>
+        <ul>
+          <li><strong>Nemovitost:</strong> ${escapeHtml(
+            property.property_configuration
+          )} ${escapeHtml(property.address)}</li>
+          <li><strong>Datum a čas:</strong> ${formattedTime}</li>
+        </ul>
+        <p>S pozdravem,<br/>Jana Bodáková, RE/MAX Pro</p>
+      `;
 
-        const htmlBody = `
-          <p>Dobrý den${
-            applicant.full_name ? ` ${escapeHtml(applicant.full_name)}` : ""
-          },</p>
-          <p>Potvrzuji rezervaci Vaší prohlídky:</p>
-          <ul>
-            <li><strong>Nemovitost:</strong> ${escapeHtml(
-              property.property_configuration
-            )} ${escapeHtml(property.address)}</li>
-            <li><strong>Datum a čas:</strong> ${formattedTime}</li>
-          </ul>
-          <p>Pokud by Vás do té doby napadly jakékoli otázky, neváhejte nás prosím kontaktovat.<br/>Těšíme se na Vás!</p>
-          <p>S pozdravem,<br/>Jana Bodáková, RE/MAX Pro</p>
-        `;
-
-        await transporter.sendMail({
-          from: `"Jana Bodáková" <jana.bodakova@re-max.cz>`,
-          envelope: { from: process.env.REMAX_USER, to: applicant.email },
-          to: applicant.email,
-          subject,
-          html: htmlBody,
-        });
-      } catch (mailErr) {
-        console.error("Email sending failed:", mailErr);
-      }
+      await transporter.sendMail({
+        from: `"Jana Bodáková" <jana.bodakova@re-max.cz>`,
+        envelope: { from: process.env.REMAX_USER, to: applicant.email },
+        to: applicant.email,
+        subject,
+        html,
+      });
     }
 
     return { statusCode: 200, body: "Slot booked successfully" };
@@ -201,3 +148,12 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: "Internal server error" };
   }
 };
+
+function escapeHtml(s: string) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}

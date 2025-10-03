@@ -1,4 +1,4 @@
-// File: src/pages/BookingPage.tsx  (SALES)
+// File: src/pages/BookingPage.tsx  (SALES variant using ?applicant=<ID>)
 import "../App.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -24,20 +24,20 @@ interface Slot {
 export default function BookingPage() {
   const { propertyCode } = useParams<{ propertyCode: string }>();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("t") || searchParams.get("token") || "";
+  const applicantId = (searchParams.get("applicant") || "").trim();
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [existingBooking, setExistingBooking] = useState<string | null>(null);
 
-  // Group & sort by Prague local date/time, hide past using Prague "now"
+  // Group & sort by Prague local date/time; hide past using Prague "now"
   const groups = useMemo(() => {
     const nowPrague = dayjs().tz(TZ);
     const byDate = slots.reduce<Record<string, Slot[]>>((acc, s) => {
       const start = dayjs.tz(s.slot_start, TZ);
-      if (start.isBefore(nowPrague)) return acc; // hide past slots in Prague time
-      const key = start.format("DD/MM/YYYY"); // group key by Prague date
+      if (start.isBefore(nowPrague)) return acc; // hide past slots (Prague)
+      const key = start.format("DD/MM/YYYY");
       (acc[key] ||= []).push(s);
       return acc;
     }, {});
@@ -56,8 +56,8 @@ export default function BookingPage() {
       setLoading(true);
       setMessage(null);
 
-      if (!propertyCode || !token) {
-        setMessage("❌ Chybí identifikace (nemovitost nebo token).");
+      if (!propertyCode || !applicantId) {
+        setMessage("❌ Chybí identifikace (nemovitost nebo žadatel).");
         setLoading(false);
         return;
       }
@@ -87,26 +87,12 @@ export default function BookingPage() {
         return;
       }
 
-      // 2) Token must belong to this property
-      const { data: tokenRow, error: tokErr } = await supabase
-        .from("viewing_tokens")
-        .select("id, applicant_id, used, property_id")
-        .eq("token", token)
-        .eq("property_id", property.id)
-        .maybeSingle();
-
-      if (tokErr || !tokenRow) {
-        setMessage("❌ Odkaz je neplatný.");
-        setLoading(false);
-        return;
-      }
-
-      // 3) Existing booking for this applicant/property? (Prague display)
+      // 2) Existing booking for this applicant/property? (Prague display)
       const { data: existing } = await supabase
         .from("viewings")
         .select("slot_start")
         .eq("property_id", property.id)
-        .eq("applicant_id", tokenRow.applicant_id)
+        .eq("applicant_id", applicantId)
         .eq("status", "booked")
         .order("slot_start", { ascending: true })
         .maybeSingle();
@@ -122,7 +108,7 @@ export default function BookingPage() {
         );
       }
 
-      // 4) Available slots (we will render in Prague)
+      // 3) Available slots for this property
       const { data: vData, error: vErr } = await supabase
         .from("viewings")
         .select("id, slot_start, slot_end, status")
@@ -141,18 +127,18 @@ export default function BookingPage() {
 
       setLoading(false);
     })();
-  }, [propertyCode, token]);
+  }, [propertyCode, applicantId]);
 
   const handleBooking = async (slotId: string) => {
-    if (!token) {
-      setMessage("❌ Chybí identifikace tokenu.");
+    if (!applicantId) {
+      setMessage("❌ Chybí identifikace žadatele.");
       return;
     }
     try {
       const res = await fetch("/.netlify/functions/bookSlot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, token }), // applicantId derived server-side
+        body: JSON.stringify({ slotId, applicantId }), // no token
       });
 
       if (res.ok) {
