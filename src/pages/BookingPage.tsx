@@ -1,4 +1,4 @@
-// File: src/pages/BookingPage.tsx
+// File: src/pages/BookingPage.tsx  (SALES)
 import "../App.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -12,11 +12,12 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault("Europe/Prague");
 
 type UUID = string;
+const TZ = "Europe/Prague";
 
 interface Slot {
   id: UUID;
-  slot_start: string; // ISO
-  slot_end: string; // ISO
+  slot_start: string; // ISO from DB (timestamptz)
+  slot_end: string; // ISO from DB (timestamptz)
   status: "available" | "booked" | "cancelled";
 }
 
@@ -30,17 +31,21 @@ export default function BookingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [existingBooking, setExistingBooking] = useState<string | null>(null);
 
+  // Group & sort by Prague local date/time, hide past using Prague "now"
   const groups = useMemo(() => {
+    const nowPrague = dayjs().tz(TZ);
     const byDate = slots.reduce<Record<string, Slot[]>>((acc, s) => {
-      const start = dayjs.tz(s.slot_start, "Europe/Prague");
-      if (start.isBefore(dayjs())) return acc; // hide past slots
-      const key = start.format("DD/MM/YYYY");
+      const start = dayjs.tz(s.slot_start, TZ);
+      if (start.isBefore(nowPrague)) return acc; // hide past slots in Prague time
+      const key = start.format("DD/MM/YYYY"); // group key by Prague date
       (acc[key] ||= []).push(s);
       return acc;
     }, {});
     Object.values(byDate).forEach((list) =>
       list.sort(
-        (a, b) => dayjs(a.slot_start).valueOf() - dayjs(b.slot_start).valueOf()
+        (a, b) =>
+          dayjs.tz(a.slot_start, TZ).valueOf() -
+          dayjs.tz(b.slot_start, TZ).valueOf()
       )
     );
     return byDate;
@@ -70,7 +75,7 @@ export default function BookingPage() {
         return;
       }
 
-      // Optional: ensure it's sales
+      // Optional business_type guard for Sales
       if (
         property.business_type &&
         !["prodej", "sale"].includes(
@@ -82,7 +87,7 @@ export default function BookingPage() {
         return;
       }
 
-      // 2) Token must belong to this property (active token)
+      // 2) Token must belong to this property
       const { data: tokenRow, error: tokErr } = await supabase
         .from("viewing_tokens")
         .select("id, applicant_id, used, property_id")
@@ -96,10 +101,7 @@ export default function BookingPage() {
         return;
       }
 
-      // (Policy: allow rebooking even if token was used—change later if needed)
-      // if (tokenRow.used) { setMessage("❌ Odkaz již byl použit."); setLoading(false); return; }
-
-      // 3) Existing booking for this applicant/property?
+      // 3) Existing booking for this applicant/property? (Prague display)
       const { data: existing } = await supabase
         .from("viewings")
         .select("slot_start")
@@ -110,7 +112,7 @@ export default function BookingPage() {
         .maybeSingle();
 
       if (existing?.slot_start) {
-        const dt = dayjs(existing.slot_start).tz("Europe/Prague");
+        const dt = dayjs(existing.slot_start).tz(TZ);
         setExistingBooking(
           `Máte rezervovaný termín prohlídky: ${dt.format(
             "DD/MM/YYYY"
@@ -120,7 +122,7 @@ export default function BookingPage() {
         );
       }
 
-      // 4) Available slots for this property
+      // 4) Available slots (we will render in Prague)
       const { data: vData, error: vErr } = await supabase
         .from("viewings")
         .select("id, slot_start, slot_end, status")
@@ -150,7 +152,7 @@ export default function BookingPage() {
       const res = await fetch("/.netlify/functions/bookSlot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, token }),
+        body: JSON.stringify({ slotId, token }), // applicantId derived server-side
       });
 
       if (res.ok) {
@@ -234,9 +236,9 @@ export default function BookingPage() {
             <h3 style={{ marginTop: 0, color: "#0054a4" }}>{date}</h3>
             <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
               {daySlots.map((slot) => {
-                const start = dayjs.tz(slot.slot_start, "Europe/Prague");
-                const end = dayjs.tz(slot.slot_end, "Europe/Prague");
-                const disabled = start.isBefore(dayjs());
+                const start = dayjs.tz(slot.slot_start, TZ);
+                const end = dayjs.tz(slot.slot_end, TZ);
+                const disabled = start.isBefore(dayjs().tz(TZ));
                 return (
                   <li
                     key={slot.id}
