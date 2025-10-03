@@ -1,27 +1,52 @@
-// File: netlify/functions/bookSlot.ts   <-- SALES version (with token)
+// File: netlify/functions/bookSlot.ts   <-- SALES version (token-based, derives applicantId)
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import dayjs from "dayjs";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
+function escapeHtml(s: string) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  try {
-    const { slotId, applicantId, token } = JSON.parse(event.body || "{}");
+  // Ensure required env vars exist for functions (frontend VITE_* do not apply here)
+  const required = [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "REMAX_USER",
+    "REMAX_PASSWORD",
+  ] as const;
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length) {
+    return {
+      statusCode: 500,
+      body: `Missing environment variables: ${missing.join(", ")}`,
+    };
+  }
 
-    if (!slotId || !applicantId || !token) {
-      return { statusCode: 400, body: "Missing slotId, applicantId or token" };
+  const supabase = createClient(
+    process.env.SUPABASE_URL as string,
+    process.env.SUPABASE_SERVICE_ROLE_KEY as string
+  );
+
+  try {
+    const { slotId, token } = JSON.parse(event.body || "{}");
+
+    // We now only require slotId + token (applicantId is derived from token)
+    if (!slotId || !token) {
+      return { statusCode: 400, body: "Missing slotId or token" };
     }
 
-    // 1) Load the slot to get property_id
+    // 1) Load the slot → property_id (and ensure it's still available)
     const { data: slotData, error: slotError } = await supabase
       .from("viewings")
       .select("id, slot_start, property_id, status")
@@ -37,11 +62,10 @@ export const handler: Handler = async (event) => {
 
     const { property_id } = slotData;
 
-    // 2) Validate token for this applicant + property (must exist and not be used)
+    // 2) Validate token for this property and derive applicantId
     const { data: tokenRow, error: tokenError } = await supabase
       .from("viewing_tokens")
-      .select("id, used")
-      .eq("applicant_id", applicantId)
+      .select("id, used, applicant_id")
       .eq("property_id", property_id)
       .eq("token", token)
       .single();
@@ -53,7 +77,15 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: "Invalid or already used token" };
     }
 
-    // 3) If applicant already has a booking for this property, free the old slot
+    const applicantId = tokenRow.applicant_id;
+    if (!applicantId) {
+      return {
+        statusCode: 400,
+        body: "Unable to resolve applicant from token",
+      };
+    }
+
+    // 3) If this applicant already booked a slot for the same property, free the old one
     const { data: existing } = await supabase
       .from("viewings")
       .select("id")
@@ -69,7 +101,7 @@ export const handler: Handler = async (event) => {
         .eq("id", existing.id);
     }
 
-    // 4) Book the new slot (atomic: only if still available)
+    // 4) Book the selected slot (atomic: only if still available)
     const { data: updatedSlots, error: updateError } = await supabase
       .from("viewings")
       .update({
@@ -81,7 +113,7 @@ export const handler: Handler = async (event) => {
       .select("id, slot_start");
 
     if (updateError) {
-      console.error("Supabase error:", updateError);
+      console.error("Supabase update error:", updateError);
       return { statusCode: 500, body: "Database update failed" };
     }
     if (!updatedSlots || updatedSlots.length === 0) {
@@ -97,7 +129,7 @@ export const handler: Handler = async (event) => {
       .eq("applicant_id", applicantId)
       .eq("property_id", property_id);
 
-    // 6) Mark token as used
+    // 6) Mark token as used (single-use links)
     await supabase
       .from("viewing_tokens")
       .update({ used: true })
@@ -167,12 +199,3 @@ export const handler: Handler = async (event) => {
     return { statusCode: 500, body: "Internal server error" };
   }
 };
-
-function escapeHtml(s: string) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
