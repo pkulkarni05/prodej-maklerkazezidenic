@@ -1,4 +1,4 @@
-// File: netlify/functions/bookSlot.ts
+// File: netlify/functions/bookSlot.sales.ts
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -15,10 +15,10 @@ const handler: Handler = async (event) => {
   }
 
   try {
-    const { slotId, applicantId } = JSON.parse(event.body || "{}");
+    const { slotId, applicantId, token } = JSON.parse(event.body || "{}");
 
-    if (!slotId || !applicantId) {
-      return { statusCode: 400, body: "Missing slotId or applicantId" };
+    if (!slotId || !applicantId || !token) {
+      return { statusCode: 400, body: "Missing slotId, applicantId or token" };
     }
 
     // 1️⃣ Get property_id of the selected slot
@@ -34,7 +34,23 @@ const handler: Handler = async (event) => {
 
     const { property_id, slot_start } = slotData;
 
-    // 2️⃣ Check if applicant already has a booking for this property
+    // 2️⃣ Validate token for this applicant + property (and ensure not used)
+    const { data: tokenRow, error: tokenError } = await supabase
+      .from("viewing_tokens")
+      .select("id, used")
+      .eq("applicant_id", applicantId)
+      .eq("property_id", property_id)
+      .eq("token", token)
+      .single();
+
+    if (tokenError || !tokenRow) {
+      return { statusCode: 400, body: "Invalid token" };
+    }
+    if (tokenRow.used) {
+      return { statusCode: 400, body: "Invalid or already used token" };
+    }
+
+    // 3️⃣ Check if applicant already has a booking for this property; if so, free the old slot
     const { data: existing } = await supabase
       .from("viewings")
       .select("id")
@@ -44,14 +60,13 @@ const handler: Handler = async (event) => {
       .maybeSingle();
 
     if (existing) {
-      // Free up old slot
       await supabase
         .from("viewings")
         .update({ status: "available", applicant_id: null })
         .eq("id", existing.id);
     }
 
-    // 3️⃣ Book the new slot
+    // 4️⃣ Book the new slot (atomic: only if still available)
     const { data: updatedSlots, error: updateError } = await supabase
       .from("viewings")
       .update({
@@ -66,21 +81,26 @@ const handler: Handler = async (event) => {
       console.error("Supabase error:", updateError);
       return { statusCode: 500, body: "Database update failed" };
     }
-
     if (!updatedSlots || updatedSlots.length === 0) {
       return { statusCode: 400, body: "Slot not available anymore" };
     }
 
     const newSlot = updatedSlots[0];
 
-    // 4️⃣ Update rental_inquiries.viewing_time
+    // 5️⃣ Update sales_inquiries.viewing_time
     await supabase
-      .from("rental_inquiries")
+      .from("sales_inquiries")
       .update({ viewing_time: newSlot.slot_start })
-      .eq("client_id", applicantId)
+      .eq("applicant_id", applicantId)
       .eq("property_id", property_id);
 
-    // 5️⃣ Fetch applicant + property details for confirmation email
+    // 6️⃣ Mark token as used
+    await supabase
+      .from("viewing_tokens")
+      .update({ used: true })
+      .eq("id", tokenRow.id);
+
+    // 7️⃣ Fetch applicant + property details for confirmation email
     const { data: applicant } = await supabase
       .from("applicants")
       .select("full_name, email")
@@ -112,10 +132,14 @@ const handler: Handler = async (event) => {
         );
 
         const htmlBody = `
-          <p>Dobrý den,</p>
+          <p>Dobrý den${
+            applicant.full_name ? ` ${escapeHtml(applicant.full_name)}` : ""
+          },</p>
           <p>Potvrzuji rezervaci Vaší prohlídky:</p>
           <ul>
-            <li><strong>Nemovitost:</strong> ${property.property_configuration} ${property.address}</li>
+            <li><strong>Nemovitost:</strong> ${escapeHtml(
+              property.property_configuration
+            )} ${escapeHtml(property.address)}</li>
             <li><strong>Datum a čas:</strong> ${formattedTime}</li>
           </ul>
           <p>Pokud by Vás do té doby napadly jakékoli otázky, neváhejte nás prosím kontaktovat.<br/>Těšíme se na Vás!</p>
@@ -123,7 +147,7 @@ const handler: Handler = async (event) => {
         `;
 
         await transporter.sendMail({
-          from: `"Jana Bodakova" <jana.bodakova@re-max.cz>`,
+          from: `"Jana Bodáková" <jana.bodakova@re-max.cz>`,
           envelope: {
             from: process.env.REMAX_USER, // actual SMTP login for SPF/DKIM
             to: applicant.email,
@@ -147,3 +171,12 @@ const handler: Handler = async (event) => {
 };
 
 export { handler };
+
+function escapeHtml(s: string) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
