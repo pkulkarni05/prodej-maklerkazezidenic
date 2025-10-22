@@ -32,7 +32,7 @@ export default function SalesFinanceSection({
 }: Props) {
   return (
     <fieldset>
-      <legend>KRÁTKÝ DOTAZNÍK K FINANCOVÁNÍ</legend>
+      <h1>KRÁTKÝ DOTAZNÍK K FINANCOVÁNÍ</h1>
 
       {/* Intro paragraph uses dynamic address and (optionally) booked viewing time */}
       <div className="form-group">
