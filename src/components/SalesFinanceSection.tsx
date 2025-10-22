@@ -37,7 +37,9 @@ export default function SalesFinanceSection({
       {/* Intro paragraph uses dynamic address and (optionally) booked viewing time */}
       <div className="form-group">
         <p style={{ marginTop: 0 }}>
+          <br />
           Dobrý den,
+          <br />
           <br />
           {/* If we know the slot, mention it; otherwise keep the generic thank-you */}
           {viewingTimeText ? (
@@ -52,13 +54,8 @@ export default function SalesFinanceSection({
             </>
           ) : (
             <>
-              děkuji Vám za rezervaci termínu prohlídky{" "}
-              {propertyAddress ? (
-                <>bytu na adrese {propertyAddress}</>
-              ) : (
-                <>tohoto bytu</>
-              )}
-              .{" "}
+              děkuji Vám za Váš zájem o prodávanou nemovitost na adrese{" "}
+              {propertyAddress ? <>{propertyAddress}</> : <>tohoto bytu</>}.{" "}
             </>
           )}
           Abych mohla celý proces přizpůsobit Vaší situaci a zajistit plynulý
@@ -130,7 +127,7 @@ export default function SalesFinanceSection({
           2. Pokud uvažujete o hypotéce, jaký je přibližný poměr financování?
           <br></br>
           <small>
-            (Pokud neplánujete využít hypotéku, tuto otázku přeskočte.)
+            <em>(Pokud neplánujete využít hypotéku, tuto otázku přeskočte.)</em>
           </small>
         </label>
         <div

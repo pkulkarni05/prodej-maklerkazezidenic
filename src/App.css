@@ -22,7 +22,9 @@ body {
 h1 {
   color: #e11b22; /* red */
 }
-
+h2 {
+  color: #e11b22; /* red */
+}
 legend {
   background-color: #0054a4;
   color: white;
