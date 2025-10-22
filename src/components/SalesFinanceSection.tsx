@@ -264,6 +264,7 @@ export default function SalesFinanceSection({
           <br />
           Děkuji Vám za spolupráci a těším se na osobní setkání!
           <br />
+          <br />
           <strong>Jana Bodáková</strong>
         </p>
       </div>
