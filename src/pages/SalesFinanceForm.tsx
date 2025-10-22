@@ -342,7 +342,7 @@ export default function SalesFinanceForm() {
       </div>
 
       {/* Title + property context */}
-      <legend>Prohlídka nemovitosti {property.property_code}</legend>
+      <h2>Prohlídka nemovitosti {property.property_code}</h2>
       <p>
         <b>Adresa:</b>{" "}
         {addressLabel ||
