@@ -2,6 +2,7 @@
 // Purpose: Presentational component. Receives property/applicant context as props.
 
 import React from "react";
+import JanaPic from "../assets/jana.jpg";
 import FormInput from "./FormInput";
 import {
   type SalesFinanceFormData,
@@ -257,7 +258,7 @@ export default function SalesFinanceSection({
       </div>
 
       {/* Outro */}
-      <div className="form-group">
+      <div className="form-group text-center">
         <p>
           🔒 Vaše odpovědi jsou důvěrné a pomohou mi přizpůsobit celý proces
           tak, aby pro Vás byl co nejpříjemnější a nejefektivnější.
@@ -265,6 +266,11 @@ export default function SalesFinanceSection({
           Děkuji Vám za spolupráci a těším se na osobní setkání!
           <br />
           <br />
+          <img
+            src={JanaPic}
+            alt="Jana Bodáková"
+            className="w-24 h-24 rounded-full object-cover mx-auto mb-2 border border-gray-200 shadow-sm"
+          />
           <strong>Jana Bodáková</strong>
         </p>
       </div>
