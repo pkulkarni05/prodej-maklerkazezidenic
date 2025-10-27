@@ -335,7 +335,7 @@ export default function SalesFinanceForm() {
       >
         <div></div>
         <img
-          src="/logo_pro.png"
+          src="/remaxLogoBig.jpg"
           alt="Logo"
           style={{ height: "100px", objectFit: "contain" }}
         />

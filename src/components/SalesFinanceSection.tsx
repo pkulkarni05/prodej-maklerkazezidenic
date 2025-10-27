@@ -3,6 +3,7 @@
 
 import React from "react";
 import JanaPic from "../assets/jana.jpg";
+import BrandStrip from "../assets/BrandStrip-Small.jpeg";
 import FormInput from "./FormInput";
 import {
   type SalesFinanceFormData,
@@ -245,7 +246,10 @@ export default function SalesFinanceSection({
       <div className="form-group">
         <label htmlFor="poznamka">
           6. Máte k financování nebo nemovitosti nějakou otázku či poznámku, o
-          které bych měla vědět před prohlídkou? <small>(Volitelné)</small>
+          které bych měla vědět před prohlídkou?{" "}
+          <small>
+            <em>(Volitelné)</em>
+          </small>
         </label>
         <textarea
           id="poznamka"
@@ -258,21 +262,44 @@ export default function SalesFinanceSection({
       </div>
 
       {/* Outro */}
-      <div className="form-group text-center">
-        <p>
+      <div className="form-group">
+        <p className="text-center mb-4">
           🔒 Vaše odpovědi jsou důvěrné a pomohou mi přizpůsobit celý proces
           tak, aby pro Vás byl co nejpříjemnější a nejefektivnější.
           <br />
+          <br />
           Děkuji Vám za spolupráci a těším se na osobní setkání!
-          <br />
-          <br />
-          <img
-            src={JanaPic}
-            alt="Jana Bodáková"
-            className="w-24 h-24 rounded-full object-cover mx-auto mb-2 border border-gray-200 shadow-sm"
-          />
-          <strong>Jana Bodáková</strong>
         </p>
+        <br />
+        {/* Row: profile picture + signature text */}
+        {/* 3-column outro layout */}
+        <div className="outro-3col">
+          {/* Column 1: Photo */}
+          <div className="outro-photo">
+            <img src={JanaPic} alt="Jana Bodáková" className="agent-photo" />
+          </div>
+
+          {/* Column 2: Signature text */}
+          <div className="outro-signature">
+            <strong>Jana Bodáková</strong>
+            <br />
+            Vaše realitní makléřka
+            <br />
+            M: +420 736 780 983
+            <br />
+            E:{" "}
+            <a href="mailto:jana.bodakova@re-max.cz">jana.bodakova@re-max.cz</a>
+          </div>
+
+          {/* Column 3: Brand strip */}
+          <div className="outro-brand">
+            <img
+              src={BrandStrip}
+              alt="Branding strip"
+              className="brand-strip"
+            />
+          </div>
+        </div>
       </div>
     </fieldset>
   );
