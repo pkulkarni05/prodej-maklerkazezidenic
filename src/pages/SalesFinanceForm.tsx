@@ -389,6 +389,18 @@ export default function SalesFinanceForm() {
           </button>
         </div>
       </form>
+      {/* subtle footer note */}
+      <div className="form-footer-note">
+        Tato webová aplikace byla vyvinuta a je spravována společností{" "}
+        <a
+          href="https://itservices.kulkarni.cz"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Kulkarni Consulting
+        </a>
+        .
+      </div>
     </div>
   );
 }

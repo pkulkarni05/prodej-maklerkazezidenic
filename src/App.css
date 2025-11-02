@@ -216,3 +216,20 @@ body {
   object-fit: contain;
   display: block; /* avoids inline-gap */
 }
+.form-footer-note {
+  text-align: right;
+  font-size: 0.75rem; /* small & subtle */
+  color: green; /* light gray */
+  margin-top: 1.5rem;
+  margin-right: 0.5rem;
+  font-style: italic;
+}
+
+.form-footer-note a {
+  color: green; /* match text */
+  text-decoration: underline;
+}
+
+.form-footer-note a:hover {
+  color: darkgreen; /* slightly darker on hover */
+}
