@@ -6,7 +6,7 @@ import { supabase } from "../supabaseClient";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-
+import KulkarniConsultingNote from "../components/KulkarniConsultingNote";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.setDefault("Europe/Prague");
@@ -207,6 +207,7 @@ export default function BookingPage() {
           </div>
         ))
       )}
+      <KulkarniConsultingNote />
     </div>
   );
 }

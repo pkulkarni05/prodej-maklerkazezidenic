@@ -11,6 +11,7 @@ import { supabase } from "../supabaseClient";
 import SalesFinanceSection from "../components/SalesFinanceSection";
 import { type SalesFinanceFormData } from "../types/salesForm";
 import "../App.css"; // reuse the exact styling as rental form
+import KulkarniConsultingNote from "../components/KulkarniConsultingNote";
 
 // Local initial form state (prefill later when we resolve applicant context)
 const initialForm: SalesFinanceFormData = {
@@ -390,17 +391,7 @@ export default function SalesFinanceForm() {
         </div>
       </form>
       {/* subtle footer note */}
-      <div className="form-footer-note">
-        Tato webová aplikace byla vyvinuta a je spravována společností{" "}
-        <a
-          href="https://itservices.kulkarni.cz"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Kulkarni Consulting
-        </a>
-        .
-      </div>
+      <KulkarniConsultingNote />
     </div>
   );
 }

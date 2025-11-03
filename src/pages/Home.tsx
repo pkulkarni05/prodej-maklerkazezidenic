@@ -1,5 +1,5 @@
 // File: src/pages/Home.tsx
-
+import KulkarniConsultingNote from "../components/KulkarniConsultingNote";
 export default function Home() {
   return (
     <div style={{ padding: "2rem", maxWidth: "600px", margin: "auto" }}>
@@ -13,6 +13,7 @@ export default function Home() {
         Pokud odkaz nemáte, obraťte se na realitního makléře, který vám ho
         poskytne.
       </p>
+      <KulkarniConsultingNote />
     </div>
   );
 }
