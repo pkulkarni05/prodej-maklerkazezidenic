@@ -49,17 +49,25 @@ function composeHtmlViewingConfirmationWithFinanceEmail(
 ) {
   const address = escapeHtml(p.address || "");
   const configuration = escapeHtml(p.property_configuration || "");
-  const docs = p.docs_link || "";
-  const video = p.video_link || "";
-  const advert = p.advert_link || "";
   const map = p.map_link || "";
 
   const addressFragment = map
     ? `<a href="${map}" target="_blank" rel="noopener noreferrer" style="color:#1f497d;text-decoration:underline;font-weight:bold">${address}</a>`
     : address;
 
-  const btnStyle =
-    "display:inline-block;background-color:#ff0000;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:15px";
+  // YOUR updated button style (inserted exactly as you want)
+  const btnStyle = `
+    display:inline-block;
+    background-color:#e60000;
+    color:#ffffff;
+    text-decoration:none;
+    font-weight:bold;
+    padding:14px 22px;
+    border-radius:8px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:16px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+  `;
 
   const base = IMG_BASE || "";
   const photoUrl = base ? `${base}/jana.jpg` : "";
@@ -67,121 +75,107 @@ function composeHtmlViewingConfirmationWithFinanceEmail(
 
   const financeBlock = financeUrl
     ? `
-    <p style="color:#2e4057">
-      Vyplňte prosím krátký online dotazník, ve kterém mi můžete nezávazně sdělit, jaký způsob financování by pro Vás mohl být aktuální.
-    </p>
-    <div style="margin:12px 0">
-      <a href="${financeUrl}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">
-        📝 Vyplnit online formulář
-      </a>
-    </div>
-    <p style="color:#2e4057">
-      Díky tomu Vám pak mohu:
-    </p>
-    <ul style="color:#2e4057;padding-left:20px;margin-top:4px;margin-bottom:12px">
-      <li>lépe přizpůsobit průběh celé transakce,</li>
-      <li>v případě potřeby nabídnout propojení na ověřeného finančního poradce,</li>
-      <li>nebo např. doladit termíny a další kroky přesně podle Vašich možností.</li>
-    </ul>
-    <p style="color:#2e4057">
-      Pokud už máte financování zajištěné nebo rozjednané, je to skvělé – i to mi v rámci koordinace celého procesu hodně pomůže.
-    </p>
-  `
+      <p style="color:#2e4057">
+        Vyplňte prosím krátký online dotazník, ve kterém mi můžete nezávazně sdělit, jaký způsob financování by pro Vás mohl být aktuální.
+      </p>
+      <div style="margin:12px 0">
+        <a href="${financeUrl}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">
+          📝 Vyplnit online formulář
+        </a>
+      </div>
+      <p style="color:#2e4057">
+        Díky tomu Vám pak mohu:
+      </p>
+      <ul style="color:#2e4057;padding-left:20px;margin-top:4px;margin-bottom:12px">
+        <li>lépe přizpůsobit průběh celé transakce,</li>
+        <li>v případě potřeby nabídnout propojení na ověřeného finančního poradce,</li>
+        <li>nebo např. doladit termíny a další kroky přesně podle Vašich možností.</li>
+      </ul>
+      <p style="color:#2e4057">
+        Pokud už máte financování zajištěné nebo rozjednané, je to skvělé – i to mi v rámci koordinace celého procesu hodně pomůže.
+      </p>
+    `
     : "";
 
   const innerHtml = `
-  <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.7;color:#2e4057">
-    <p style="color:#2e4057">Dobrý den,</p>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.7;color:#2e4057">
 
-    <p style="color:#2e4057">
-      děkuji za Váš zájem o prohlídku nemovitosti. Těším se na setkání s Vámi dne
-      <strong>${escapeHtml(viewingTime)}</strong>, na adrese ${addressFragment},
-      kdy si společně projdeme bydlení, které Vás zaujalo.
-    </p>
+      <p style="color:#2e4057">Dobrý den,</p>
 
-    <p style="color:#2e4057">
-      Abych Vám mohla v případě zájmu poskytnout co nejefektivnější podporu a celý proces koupě probíhal co nejhladčeji,
-      dovolím si ještě malou prosbu.
-    </p>
+      <p style="color:#2e4057">
+        děkuji za Váš zájem o prohlídku nemovitosti. Těším se na setkání s Vámi dne
+        <strong>${escapeHtml(
+          viewingTime
+        )}</strong>, na adrese ${addressFragment},
+        kdy si společně projdeme bydlení, které Vás zaujalo.
+      </p>
 
-    ${financeBlock}
+      <p style="color:#2e4057">
+        Abych Vám mohla v případě zájmu poskytnout co nejefektivnější podporu a celý proces koupě probíhal co nejhladčeji,
+        dovolím si ještě malou prosbu.
+      </p>
 
-    <p style="color:#2e4057">
-      Děkuji za spolupráci a kdyby cokoli, jsem Vám k dispozici.
-    </p>
-    <p style="color:#2e4057">
-      Těším se na viděnou!
-    </p>
+      ${financeBlock}
 
-    <p style="margin-top:16px;color:#2e4057">
-      A pokud Vás zajímá, co dalšího momentálně nabízím v Brně a okolí, navštivte moje stránky:
-      <a href="https://www.remax-czech.cz/reality/nemovitosti-maklere/9229/jana-bodakova/"
-         target="_blank" rel="noopener noreferrer"
-         style="color:#1f497d;text-decoration:underline;font-weight:bold">
-         Prohlédnout další nemovitosti
-      </a>
-    </p>
+      <p style="color:#2e4057">
+        Děkuji za spolupráci a kdyby cokoli, jsem Vám k dispozici.
+      </p>
 
-    <p style="color:#2e4057">
-      Pro nejčerstvější novinky, tipy a připravované nemovitosti mě můžete sledovat i na:
-      &nbsp;<a href="https://www.facebook.com/jaknabydlenivbrne" target="_blank" rel="noopener noreferrer" style="color:#1f497d;text-decoration:none;font-weight:bold">Facebook</a> |
-      <a href="https://www.instagram.com/jak_na_bydleni/" target="_blank" rel="noopener noreferrer" style="color:#1f497d;text-decoration:none;font-weight:bold">Instagram</a> |
-      <a href="https://www.linkedin.com/in/jbodakova/" target="_blank" rel="noopener noreferrer" style="color:#1f497d;text-decoration:none;font-weight:bold">LinkedIn</a>
-    </p>
+      <p style="color:#2e4057">Těším se na viděnou!</p>
 
-    <p style="color:#2e4057">V případě jakýchkoli dotazů jsem Vám plně k dispozici.</p>
-
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0"
-          style="width:100%;max-width:640px;margin-top:12px;font-size:0;line-height:0">
-      <tr>
-        <td style="width:96px;vertical-align:top;padding:6px 8px 6px 0">
-          ${
-            photoUrl
-              ? `<img src="${photoUrl}" alt="Jana Bodáková" width="96"
-                style="display:block;border:0;outline:none;border-radius:6px;max-width:100%;height:auto" />`
-              : ""
-          }
-        </td>
-        <td style="vertical-align:top;padding:6px 0;font-size:15px;line-height:1.6;color:#2e4057">
-          <div>
-            <strong style="color:#1f497d">Jana Bodáková</strong><br/>
-            Vaše realitní makléřka<br/>
-            M: +420&nbsp;736&nbsp;780&nbsp;983<br/>
-            E: <a href="mailto:jana.bodakova@re-max.cz" style="color:#1f497d;text-decoration:none">jana.bodakova@re-max.cz</a>
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2" style="padding:8px 0 0 0;text-align:left">
-          ${
-            brandUrl
-              ? `<img src="${brandUrl}" alt="RE/MAX Brand" width="300"
-                style="display:inline-block;border:0;outline:none;max-width:100%;height:auto"/>`
-              : ""
-          }
-        </td>
-      </tr>
-    </table>
-  </div>
-  `.trim();
-
-  return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-       bgcolor="#1f497d" style="background-color:#1f497d;width:100%">
-  <tr>
-    <td align="center" valign="top" style="padding:6px;font-size:0;line-height:0">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
-             bgcolor="#ffffff"
-             style="border-collapse:separate;width:100%;max-width:600px;background-color:#ffffff;border-spacing:0">
+      <!-- SIGNATURE (unchanged) -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+            style="width:100%;max-width:640px;margin-top:12px;font-size:0;line-height:0">
         <tr>
-          <td style="padding:20px">
-            ${innerHtml}
+          <td style="width:96px;vertical-align:top;padding:6px 8px 6px 0">
+            ${
+              photoUrl
+                ? `<img src="${photoUrl}" alt="Jana Bodáková" width="96"
+                  style="display:block;border:0;outline:none;border-radius:6px;max-width:100%;height:auto" />`
+                : ""
+            }
+          </td>
+          <td style="vertical-align:top;padding:6px 0;font-size:15px;line-height:1.6;color:#2e4057">
+            <div>
+              <strong style="color:#1f497d">Jana Bodáková</strong><br/>
+              Vaše realitní makléřka<br/>
+              M: +420&nbsp;736&nbsp;780&nbsp;983<br/>
+              E: <a href="mailto:jana.bodakova@re-max.cz" style="color:#1f497d;text-decoration:none">jana.bodakova@re-max.cz</a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:8px 0 0 0;text-align:left">
+            ${
+              brandUrl
+                ? `<img src="${brandUrl}" alt="RE/MAX Brand" width="300"
+                  style="display:inline-block;border:0;outline:none;max-width:100%;height:auto"/>`
+                : ""
+            }
           </td>
         </tr>
       </table>
-    </td>
-  </tr>
-</table>
+
+    </div>
+  `.trim();
+
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        bgcolor="#1f497d" style="background-color:#1f497d;width:100%">
+    <tr>
+      <td align="center" valign="top" style="padding:6px;font-size:0;line-height:0">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+              bgcolor="#ffffff"
+              style="border-collapse:separate;width:100%;max-width:600px;background-color:#ffffff;border-spacing:0">
+          <tr>
+            <td style="padding:20px">
+              ${innerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
   `.trim();
 }
 
