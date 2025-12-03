@@ -65,70 +65,53 @@ function composeHtmlViewingConfirmationWithFinanceEmail(
   const photoUrl = base ? `${base}/jana.jpg` : "";
   const brandUrl = base ? `${base}/BrandStrip-Small.jpeg` : "";
 
-  // Base confirmation sentence (same tone as existing viewing confirmation)
-  const confirmationSentence = `
-    <p style="color:#2e4057">
-      velmi děkuji za Váš zájem o byt ${configuration} na adrese ${addressFragment}. 
-      Vaše prohlídka je pro Vás rezervována na <strong>${escapeHtml(
-        viewingTime
-      )}</strong>.
-    </p>
-  `;
-
-  // Finance CTA block – only if we have a URL
   const financeBlock = financeUrl
     ? `
     <p style="color:#2e4057">
-      Abychom se mohli na prohlídku co nejlépe připravit a zvolit pro Vás vhodnou strategii financování,
-      prosím o vyplnění krátkého finančního dotazníku. Zvládnete jej během několika minut a pomůže nám
-      rychleji vyhodnotit Vaše možnosti.
+      Vyplňte prosím krátký online dotazník, ve kterém mi můžete nezávazně sdělit, jaký způsob financování by pro Vás mohl být aktuální.
     </p>
     <div style="margin:12px 0">
       <a href="${financeUrl}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">
-        💰 Vyplnit finanční dotazník
+        📝 Vyplnit online formulář
       </a>
     </div>
-    <p style="color:#2e4057;font-size:14px">
-      Pokud by tlačítko nefungovalo, můžete použít tento odkaz:<br/>
-      <a href="${financeUrl}" target="_blank" rel="noopener noreferrer" style="color:#1f497d;text-decoration:underline">
-        ${financeUrl}
-      </a>
+    <p style="color:#2e4057">
+      Díky tomu Vám pak mohu:
+    </p>
+    <ul style="color:#2e4057;padding-left:20px;margin-top:4px;margin-bottom:12px">
+      <li>lépe přizpůsobit průběh celé transakce,</li>
+      <li>v případě potřeby nabídnout propojení na ověřeného finančního poradce,</li>
+      <li>nebo např. doladit termíny a další kroky přesně podle Vašich možností.</li>
+    </ul>
+    <p style="color:#2e4057">
+      Pokud už máte financování zajištěné nebo rozjednané, je to skvělé – i to mi v rámci koordinace celého procesu hodně pomůže.
     </p>
   `
     : "";
-
-  const buttons: string[] = [];
-  if (docs) {
-    buttons.push(
-      `<div style="margin-top:10px"><a href="${docs}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">Detailní dokumenty</a></div>`
-    );
-  }
-  if (video) {
-    buttons.push(
-      `<div style="margin-top:10px"><a href="${video}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">Videoprohlídka</a></div>`
-    );
-  }
-  if (advert) {
-    buttons.push(
-      `<div style="margin-top:10px"><a href="${advert}" target="_blank" rel="noopener noreferrer" style="${btnStyle}">Zobrazit inzerát</a></div>`
-    );
-  }
 
   const innerHtml = `
   <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.7;color:#2e4057">
     <p style="color:#2e4057">Dobrý den,</p>
 
-    ${confirmationSentence}
+    <p style="color:#2e4057">
+      děkuji za Váš zájem o prohlídku nemovitosti. Těším se na setkání s Vámi dne
+      <strong>${escapeHtml(viewingTime)}</strong>, na adrese ${addressFragment},
+      kdy si společně projdeme bydlení, které Vás zaujalo.
+    </p>
+
+    <p style="color:#2e4057">
+      Abych Vám mohla v případě zájmu poskytnout co nejefektivnější podporu a celý proces koupě probíhal co nejhladčeji,
+      dovolím si ještě malou prosbu.
+    </p>
 
     ${financeBlock}
 
     <p style="color:#2e4057">
-      Mým cílem je, aby byl celý proces prodeje maximálně transparentní, efektivní a pohodlný,
-      proto Vám již nyní posílám všechny důležité informace. Níže najdete přímé odkazy na materiály,
-      které si můžete pohodlně prostudovat ještě před prohlídkou:
+      Děkuji za spolupráci a kdyby cokoli, jsem Vám k dispozici.
     </p>
-
-    ${buttons.join("")}
+    <p style="color:#2e4057">
+      Těším se na viděnou!
+    </p>
 
     <p style="margin-top:16px;color:#2e4057">
       A pokud Vás zajímá, co dalšího momentálně nabízím v Brně a okolí, navštivte moje stránky:
@@ -147,7 +130,6 @@ function composeHtmlViewingConfirmationWithFinanceEmail(
     </p>
 
     <p style="color:#2e4057">V případě jakýchkoli dotazů jsem Vám plně k dispozici.</p>
-    <p style="color:#2e4057">Těším se na osobní setkání při prohlídkovém dni.</p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0"
           style="width:100%;max-width:640px;margin-top:12px;font-size:0;line-height:0">
@@ -377,10 +359,7 @@ const handler: Handler = async (event) => {
           );
 
           // Subject explicitly mentions finance form to distinguish from other auto-responses
-          const subject =
-            `Potvrzení termínu prohlídky + odkaz na finanční dotazník – ${
-              property.property_configuration || ""
-            } ${property.address || ""}`.trim();
+          const subject = "Potvrzení termínu prohlídky + malá prosba";
 
           await transporter.sendMail({
             from: `"Jana Bodáková" <${smtpUser}>`,
