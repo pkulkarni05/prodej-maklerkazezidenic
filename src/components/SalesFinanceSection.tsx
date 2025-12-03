@@ -32,6 +32,18 @@ export default function SalesFinanceSection({
   propertyAddress,
   viewingTimeText,
 }: Props) {
+  const fm = formData.financovani;
+  const ownOnly = fm === "Vlastními zdroji";
+  const mortgageOnly = fm === "Hypotékou";
+  const combo = fm === "Kombinací hypotéky a vlastních zdrojů";
+
+  // Visibility matrix for questions 2–6
+  const showQ2 = combo;
+  const showQ3 = mortgageOnly || combo;
+  const showQ4 = mortgageOnly || combo;
+  const showQ5 = ownOnly || mortgageOnly || combo;
+  const showQ6 = ownOnly || mortgageOnly || combo;
+
   return (
     <fieldset>
       <legend>KRÁTKÝ DOTAZNÍK K FINANCOVÁNÍ</legend>
@@ -121,145 +133,159 @@ export default function SalesFinanceSection({
             </option>
           ))}
         </select>
+        <br></br>{" "}
+        <small>
+          <em>
+            Po výběru možnosti se Vám zobrazí jen otázky, které se Vaší situace
+            týkají.
+          </em>
+        </small>
       </div>
 
-      {/* Q2 */}
-      <div className="form-group">
-        <label>
-          2. Pokud uvažujete o hypotéce, jaký je přibližný poměr financování?
-          <br></br>
-          <small>
-            <em>(Pokud neplánujete využít hypotéku, tuto otázku přeskočte.)</em>
-          </small>
-        </label>
-        <div
-          style={{
-            display: "grid",
-            gap: "8px",
-            gridTemplateColumns: "1fr 1fr",
-          }}
-        >
-          <div>
-            <label htmlFor="vlastniProcent">💰 Vlastní zdroje (%)</label>
-            <input
-              id="vlastniProcent"
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              name="vlastniProcent"
-              value={formData.vlastniProcent}
-              onChange={handleChange}
-              placeholder="např. 20"
-            />
-          </div>
-          <div>
-            <label htmlFor="hypotekyProcent">🏦 Hypotéka (%)</label>
-            <input
-              id="hypotekyProcent"
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              name="hypotekyProcent"
-              value={formData.hypotekyProcent}
-              onChange={handleChange}
-              placeholder="např. 80"
-            />
+      {/* Q2 – only for "kombinace" */}
+      {showQ2 && (
+        <div className="form-group">
+          <label>
+            2. Pokud plánujete kombinovat vlastní zdroje a hypotéku, jaký je
+            přibližný poměr financování?
+          </label>
+          <div
+            style={{
+              display: "grid",
+              gap: "8px",
+              gridTemplateColumns: "1fr 1fr",
+            }}
+          >
+            <div>
+              <label htmlFor="vlastniProcent">💰 Vlastní zdroje (%)</label>
+              <input
+                id="vlastniProcent"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                name="vlastniProcent"
+                value={formData.vlastniProcent}
+                onChange={handleChange}
+                placeholder="např. 20"
+              />
+            </div>
+            <div>
+              <label htmlFor="hypotekyProcent">🏦 Hypotéka (%)</label>
+              <input
+                id="hypotekyProcent"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                name="hypotekyProcent"
+                value={formData.hypotekyProcent}
+                onChange={handleChange}
+                placeholder="např. 80"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Q3 */}
-      <div className="form-group">
-        <label>
-          3. Máte už k hypotéce svého finančního poradce?
-          <span className="required-star">*</span>
-        </label>
-        <select
-          name="financniPoradce"
-          value={formData.financniPoradce}
-          onChange={handleChange}
-          required
-        >
-          <option value="">-- Vyberte --</option>
-          {[
-            "Ano",
-            "Ne",
-            "Ne, uvítal/a bych doporučení na spolehlivého specialistu",
-          ].map((opt) => (
-            <option key={opt} value={opt as MortgageAdvisorChoice}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Q3 – only for "Hypotékou" or "Kombinací..." */}
+      {showQ3 && (
+        <div className="form-group">
+          <label>
+            3. Máte už k hypotéce svého finančního poradce?
+            <span className="required-star">*</span>
+          </label>
+          <select
+            name="financniPoradce"
+            value={formData.financniPoradce}
+            onChange={handleChange}
+            required
+          >
+            <option value="">-- Vyberte --</option>
+            {[
+              "Ano",
+              "Ne",
+              "Ne, uvítal/a bych doporučení na spolehlivého specialistu",
+            ].map((opt) => (
+              <option key={opt} value={opt as MortgageAdvisorChoice}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {/* Q4 */}
-      <div className="form-group">
-        <label>
-          4. Jak daleko jste s vyřizováním hypotéky?
-          <span className="required-star">*</span>
-        </label>
-        <select
-          name="stavHypoteky"
-          value={formData.stavHypoteky}
-          onChange={handleChange}
-          required
-        >
-          <option value="">-- Vyberte --</option>
-          {[
-            "Teprve budu začínat",
-            "Zatím zjišťuji možnosti a podmínky",
-            "Mám již rozjednanou hypotéku / konzultaci v bance",
-            "Hypotéku mám již schválenou",
-          ].map((opt) => (
-            <option key={opt} value={opt as MortgageProgress}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Q4 – only for "Hypotékou" or "Kombinací..." */}
+      {showQ4 && (
+        <div className="form-group">
+          <label>
+            4. Jak daleko jste s vyřizováním hypotéky?
+            <span className="required-star">*</span>
+          </label>
+          <select
+            name="stavHypoteky"
+            value={formData.stavHypoteky}
+            onChange={handleChange}
+            required
+          >
+            <option value="">-- Vyberte --</option>
+            {[
+              "Teprve budu začínat",
+              "Zatím zjišťuji možnosti a podmínky",
+              "Mám již rozjednanou hypotéku / konzultaci v bance",
+              "Hypotéku mám již schválenou",
+            ].map((opt) => (
+              <option key={opt} value={opt as MortgageProgress}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {/* Q5 */}
-      <div className="form-group">
-        <label>
-          5. Je Vaše koupě vázaná na prodej jiné nemovitosti?
-          <span className="required-star">*</span>
-        </label>
-        <select
-          name="vazanoNaProdej"
-          value={formData.vazanoNaProdej}
-          onChange={handleChange}
-          required
-        >
-          <option value="">-- Vyberte --</option>
-          {["Ano", "Ne"].map((opt) => (
-            <option key={opt} value={opt as TiedToSale}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Q5 – shown for all three financing options (except when none selected yet) */}
+      {showQ5 && (
+        <div className="form-group">
+          <label>
+            5. Je Vaše koupě vázaná na prodej jiné nemovitosti?
+            <span className="required-star">*</span>
+          </label>
+          <select
+            name="vazanoNaProdej"
+            value={formData.vazanoNaProdej}
+            onChange={handleChange}
+            required
+          >
+            <option value="">-- Vyberte --</option>
+            {["Ano", "Ne"].map((opt) => (
+              <option key={opt} value={opt as TiedToSale}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {/* Q6 */}
-      <div className="form-group">
-        <label htmlFor="poznamka">
-          6. Máte k financování nebo nemovitosti nějakou otázku či poznámku, o
-          které bych měla vědět před prohlídkou?{" "}
-          <small>
-            <em>(Volitelné)</em>
-          </small>
-        </label>
-        <textarea
-          id="poznamka"
-          name="poznamka"
-          value={formData.poznamka}
-          onChange={handleChange}
-          rows={4}
-          placeholder="Vaše poznámka…"
-        />
-      </div>
+      {/* Q6 – shown for all three financing options (except when none selected yet) */}
+      {showQ6 && (
+        <div className="form-group">
+          <label htmlFor="poznamka">
+            6. Máte k financování nebo nemovitosti nějakou otázku či poznámku, o
+            které bych měla vědět před prohlídkou?{" "}
+            <small>
+              <em>(Volitelné)</em>
+            </small>
+          </label>
+          <textarea
+            id="poznamka"
+            name="poznamka"
+            value={formData.poznamka}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Vaše poznámka…"
+          />
+        </div>
+      )}
 
       {/* Outro */}
       <div className="form-group">
@@ -271,7 +297,6 @@ export default function SalesFinanceSection({
           Děkuji Vám za spolupráci a těším se na osobní setkání!
         </p>
         <br />
-        {/* Row: profile picture + signature text */}
         {/* 3-column outro layout */}
         <div className="outro-3col">
           {/* Column 1: Photo */}

@@ -51,6 +51,7 @@ export default function SalesFinanceForm() {
     const p = new URLSearchParams(location.search);
     return p.get("applicant_id");
   }, [location.search]);
+
   // Read a signed prefill token from the URL (?token=...)
   const token = useMemo(() => {
     const p = new URLSearchParams(location.search);
@@ -162,32 +163,72 @@ export default function SalesFinanceForm() {
     >
   ) {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => {
+      let next: SalesFinanceFormData = {
+        ...prev,
+        [name]: value,
+      };
+
+      // When switching to "Vlastními zdroji", clear mortgage-specific fields
+      if (name === "financovani" && value === "Vlastními zdroji") {
+        next = {
+          ...next,
+          vlastniProcent: "",
+          hypotekyProcent: "",
+          financniPoradce: "",
+          stavHypoteky: "",
+        };
+      }
+
+      return next;
+    });
   }
 
-  // Local validation (prijmeni no longer required)
+  // Local validation with financing-dependent rules
   function validate(): string | null {
-    const required = [
+    const fm = formData.financovani;
+    const ownOnly = fm === "Vlastními zdroji";
+    const mortgageOnly = fm === "Hypotékou";
+    const combo = fm === "Kombinací hypotéky a vlastních zdrojů";
+
+    // 1) Always required fields
+    const required: Array<[keyof SalesFinanceFormData, string]> = [
       ["jmeno", "Jméno a příjmení"],
       ["telefon", "Telefon"],
       ["email", "Email"],
       ["financovani", "Způsob financování"],
-      ["financniPoradce", "Finanční poradce"],
-      ["stavHypoteky", "Stav vyřizování hypotéky"],
-      ["vazanoNaProdej", "Vázáno na prodej jiné nemovitosti"],
-    ] as const;
+    ];
 
+    // 2) Financing-specific required fields
+    if (ownOnly) {
+      // Only question 5 is mandatory (plus Q1 above)
+      required.push(["vazanoNaProdej", "Vázáno na prodej jiné nemovitosti"]);
+    } else if (mortgageOnly) {
+      // Q3, Q4, Q5 mandatory
+      required.push(
+        ["financniPoradce", "Finanční poradce"],
+        ["stavHypoteky", "Stav vyřizování hypotéky"],
+        ["vazanoNaProdej", "Vázáno na prodej jiné nemovitosti"]
+      );
+    } else if (combo) {
+      // Q2–Q5 relevant; Q2 handled via % validation below, Q3–Q5 standard required
+      required.push(
+        ["financniPoradce", "Finanční poradce"],
+        ["stavHypoteky", "Stav vyřizování hypotéky"],
+        ["vazanoNaProdej", "Vázáno na prodej jiné nemovitosti"]
+      );
+    }
+
+    // 3) Check all required fields based on the above matrix
     for (const [key, label] of required) {
-      if (!String((formData as any)[key]).trim()) {
+      if (!String(formData[key] ?? "").trim()) {
         return `Vyplňte prosím pole: ${label}.`;
       }
     }
 
-    const usesMortgage =
-      formData.financovani === "Hypotékou" ||
-      formData.financovani === "Kombinací hypotéky a vlastních zdrojů";
-
-    if (usesMortgage) {
+    // 4) Percentage validation ONLY for "kombinace"
+    if (combo) {
       const own = formData.vlastniProcent
         ? Number(formData.vlastniProcent)
         : NaN;
@@ -209,6 +250,7 @@ export default function SalesFinanceForm() {
       }
     }
 
+    // 5) GDPR consent
     if (!gdprConsent) {
       return "Musíte souhlasit se zpracováním osobních údajů (GDPR).";
     }
